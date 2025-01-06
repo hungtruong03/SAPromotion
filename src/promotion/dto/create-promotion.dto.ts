@@ -1,5 +1,6 @@
 import { IsNotEmpty, IsOptional, IsString, IsEnum, IsNumber, IsDate } from 'class-validator';
 import { DiscountType } from '@prisma/client';
+import { Transform } from 'class-transformer';
 
 export class CreatePromotionDto {
   @IsString()
@@ -24,6 +25,7 @@ export class CreatePromotionDto {
 
   @IsDate()
   @IsOptional()
+  @Transform(({ value }) => (value ? new Date(value) : value))
   expiresAt?: Date;
 
   @IsNumber()

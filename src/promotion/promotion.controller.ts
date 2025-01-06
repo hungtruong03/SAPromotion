@@ -80,13 +80,13 @@ export class PromotionController {
   }
 
   @Post('redeem/:id')
-  async redeem(@Param('id') id: string, @Body('phoneNumber') phoneNumber: string) {
-    return this.promotionService.redeem(id, phoneNumber);
+  async redeem(@Param('id') id: string, @Body('phoneNumber') phoneNumber: string, @Body('userId') userId: number) {
+    return this.promotionService.redeem(id, phoneNumber, userId);
   }
 
   @Post('redeem/code/:code')
-  async redeemPromotion(@Param('code') code: string, @Body('phoneNumber') phoneNumber: string) {
-    return this.promotionService.redeemByCode(code, phoneNumber);
+  async redeemPromotion(@Param('code') code: string, @Body('phoneNumber') phoneNumber: string, @Body('userId') userId: number) {
+    return this.promotionService.redeemByCode(code, phoneNumber, userId);
   }
 
   @Get('status/:id')

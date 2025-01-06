@@ -5,10 +5,6 @@ export class CreatePromotionTypeDto {
   @IsNotEmpty()
   name: string;
 
-  @IsString()
-  @IsOptional()
-  description?: string;
-
   @IsNotEmpty()
   partnerId: number;
 }

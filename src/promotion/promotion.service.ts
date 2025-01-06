@@ -1,4 +1,4 @@
-import { Injectable, Inject, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject, BadRequestException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
@@ -47,7 +47,7 @@ export class PromotionService {
 
   async update(id: string, data: Prisma.PromotionUpdateInput) {
     if (data.redeemed === false) {
-      throw new Error('A redeemed promotion cannot have its status set to false.');
+      throw new BadRequestException('A redeemed promotion cannot have its status set to false.');
     }
 
     return this.prisma.promotion.update({
@@ -61,27 +61,35 @@ export class PromotionService {
     return this.prisma.promotion.delete({ where: { id } });
   }
 
-  async redeem(id: string, phoneNumber: string) {
+  async redeem(id: string, phoneNumber: string, userId: number) {
     const promotion = await this.prisma.promotion.findUnique({
       where: { id },
       include: { type: true },
     });
 
     if (!promotion) {
-      throw new BadRequestException('Promotion not found.');
+      throw new NotFoundException('Promotion not found.');
     }
 
     if (promotion.redeemed) {
-      throw new Error('This promotion has already been redeemed and cannot be redeemed again.');
+      throw new BadRequestException('This promotion has already been redeemed and cannot be redeemed again.');
+    }
+
+    const currentDate = new Date();
+    if (promotion.expiresAt && new Date(promotion.expiresAt) < currentDate) {
+      throw new BadRequestException('This promotion has expired and cannot be redeemed.');
     }
 
     const { discountType, discountValue, type } = promotion;
 
-    await this.callRedeemApi(phoneNumber, discountType, discountValue, type.partnerId);
+    // await this.callRedeemApi(phoneNumber, discountType, discountValue, type.partnerId);
 
     return this.prisma.promotion.update({
       where: { id },
-      data: { redeemed: true },
+      data: {
+        redeemed: true,
+        userId,
+      },
     });
   }
 
@@ -91,7 +99,7 @@ export class PromotionService {
     });
 
     if (!promotion) {
-      throw new Error('Promotion not found.');
+      throw new NotFoundException('Promotion not found.');
     }
 
     return { redeemed: promotion.redeemed };
@@ -136,13 +144,13 @@ export class PromotionService {
     });
   }
 
-  async generateEncryptedCode(promotionId: string): Promise<string> {
+  async generateEncryptedCode(promotionId: string): Promise<Object> {
     const promotion = await this.prisma.promotion.findUnique({
       where: { id: promotionId },
     });
 
     if (!promotion) {
-      throw new Error('Promotion not found.');
+      throw new NotFoundException('Promotion not found.');
     }
 
     let randomString = this.generateRandomString(6);
@@ -154,7 +162,7 @@ export class PromotionService {
 
     await this.redis.set(randomString, promotionId, 'EX', 1800);
 
-    return randomString;
+    return {Code: randomString};
   }
 
   private generateRandomString(length: number): string {
@@ -176,7 +184,7 @@ export class PromotionService {
     return value;
   }
 
-  async redeemByCode(code: string, phoneNumber: string) {
+  async redeemByCode(code: string, phoneNumber: string, userId: number) {
     const promotionId = await this.redis.get(code);
 
     if (!promotionId) {
@@ -189,20 +197,28 @@ export class PromotionService {
     });
 
     if (!promotion) {
-      throw new BadRequestException('Promotion not found.');
+      throw new NotFoundException('Promotion not found.');
     }
 
     if (promotion.redeemed) {
       throw new BadRequestException('Promotion has already been redeemed.');
     }
 
+    const currentDate = new Date();
+    if (promotion.expiresAt && new Date(promotion.expiresAt) < currentDate) {
+      throw new BadRequestException('This promotion has expired and cannot be redeemed.');
+    }
+
     const { discountType, discountValue, type } = promotion;
 
-    await this.callRedeemApi(phoneNumber, discountType, discountValue, type.partnerId);
+    // await this.callRedeemApi(phoneNumber, discountType, discountValue, type.partnerId);
 
     await this.prisma.promotion.update({
       where: { id: promotionId },
-      data: { redeemed: true },
+      data: {
+        redeemed: true,
+        userId,
+      },
     });
 
     return { message: 'Promotion redeemed successfully.' };
@@ -210,6 +226,8 @@ export class PromotionService {
 
   async callRedeemApi(phoneNumber: string, discountType: string, discountValue: number, partnerId: number) {
     const apiUrl = `${this.redeemApiBaseUrl}/redeem`;
+
+    console.log('Calling Redeem API with the following data:', {phoneNumber, discountType, discountValue, partnerId});
 
     try {
       const response = await axios.post(apiUrl, {
