@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Delete, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, UsePipes, ValidationPipe, Query } from '@nestjs/common';
 import { PromotionService } from './promotion.service';
 import { CreatePromotionDto } from './dto/create-promotion.dto';
 import { UpdatePromotionDto } from './dto/update-promotion.dto';
@@ -28,23 +28,31 @@ export class PromotionController {
   }
 
   @Get('list')
-  async findAll() {
-    return this.promotionService.findAll();
+  async findAll(@Query('perPage') perPage: number, @Query('page') page: number) {
+    return this.promotionService.findAll(Number(perPage), Number(page));
   }
 
   @Get('type/list')
-  async findAllTypes() {
-    return this.promotionService.findAllTypes();
+  async findAllTypes(@Query('perPage') perPage: number, @Query('page') page: number) {
+    return this.promotionService.findAllTypes(Number(perPage), Number(page));
   }
 
   @Get('list/:userId')
-  async getPromotionsByUser(@Param('userId') userId: number) {
-    return this.promotionService.findByUserId(Number(userId));
+  async getPromotionsByUser(
+    @Param('userId') userId: number,
+    @Query('perPage') perPage: number,
+    @Query('page') page: number,
+  ) {
+    return this.promotionService.findByUserId(Number(userId), Number(perPage), Number(page));
   }
 
   @Get('type/list/:partnerId')
-  async getTypesByPartner(@Param('partnerId') partnerId: number) {
-    return this.promotionService.findByPartnerId(Number(partnerId));
+  async getTypesByPartner(
+    @Param('partnerId') partnerId: number,
+    @Query('perPage') perPage: number,
+    @Query('page') page: number,
+  ) {
+    return this.promotionService.findByPartnerId(Number(partnerId), Number(perPage), Number(page));
   }
 
   @Get('get/:id')
@@ -97,5 +105,10 @@ export class PromotionController {
   @Get('encrypt/:id')
   async generateEncryptedCode(@Param('id') id: string) {
     return this.promotionService.generateEncryptedCode(id);
+  }
+
+  @Post('assign')
+  async assignPromotion(@Body('userId') userId: number, @Body('promotionType') promotionType: number) {
+    return await this.promotionService.assignPromotion(userId, promotionType);
   }
 }

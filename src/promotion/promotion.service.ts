@@ -31,8 +31,11 @@ export class PromotionService {
     });
   }
 
-  async findAll() {
+  async findAll(perPage: number = 10, page: number = 1) {
+    const skip = (page - 1) * perPage;
     return this.prisma.promotion.findMany({
+      skip,
+      take: perPage,
       include: { type: true },
     });
   }
@@ -41,8 +44,14 @@ export class PromotionService {
     return this.prisma.promotion.findUnique({ where: { id } });
   }
 
-  async findByUserId(userId: number) {
-    return this.prisma.promotion.findMany({ where: { userId } });
+  async findByUserId(userId: number, perPage: number = 10, page: number = 1) {
+    const skip = (page - 1) * perPage;
+    return this.prisma.promotion.findMany({
+      where: { userId },
+      skip,
+      take: perPage,
+      include: { type: true },
+    });
   }
 
   async update(id: string, data: Prisma.PromotionUpdateInput) {
@@ -75,20 +84,23 @@ export class PromotionService {
       throw new BadRequestException('This promotion has already been redeemed and cannot be redeemed again.');
     }
 
+    if (promotion.userId != userId) {
+      throw new BadRequestException('This promotion does not belong to the specified user.');
+    }
+
     const currentDate = new Date();
-    if (promotion.expiresAt && new Date(promotion.expiresAt) < currentDate) {
+    if (promotion.type.expiresAt && new Date(promotion.type.expiresAt) < currentDate) {
       throw new BadRequestException('This promotion has expired and cannot be redeemed.');
     }
 
-    const { discountType, discountValue, type } = promotion;
+    const { discountType, discountValue } = promotion.type;
 
-    // await this.callRedeemApi(phoneNumber, discountType, discountValue, type.partnerId);
+    await this.callRedeemApi(phoneNumber, discountType, discountValue, promotion.type.partnerId);
 
     return this.prisma.promotion.update({
       where: { id },
       data: {
         redeemed: true,
-        userId,
       },
     });
   }
@@ -109,12 +121,21 @@ export class PromotionService {
     return this.prisma.promotionType.create({ data });
   }
 
-  async findAllTypes() {
-    return this.prisma.promotionType.findMany();
+  async findAllTypes(perPage: number = 10, page: number = 1) {
+    const skip = (page - 1) * perPage;
+    return this.prisma.promotionType.findMany({
+      skip,
+      take: perPage,
+    });
   }
 
-  async findByPartnerId(partnerId: number) {
-    return this.prisma.promotionType.findMany({ where: { partnerId } });
+  async findByPartnerId(partnerId: number, perPage: number = 10, page: number = 1) {
+    const skip = (page - 1) * perPage;
+    return this.prisma.promotionType.findMany({
+      where: { partnerId },
+      skip,
+      take: perPage,
+    });
   }
 
   async findOneType(id: number) {
@@ -162,7 +183,7 @@ export class PromotionService {
 
     await this.redis.set(randomString, promotionId, 'EX', 1800);
 
-    return {Code: randomString};
+    return { Code: randomString };
   }
 
   private generateRandomString(length: number): string {
@@ -204,20 +225,23 @@ export class PromotionService {
       throw new BadRequestException('Promotion has already been redeemed.');
     }
 
+    if (promotion.userId != userId) {
+      throw new BadRequestException('This promotion does not belong to the specified user.');
+    }
+
     const currentDate = new Date();
-    if (promotion.expiresAt && new Date(promotion.expiresAt) < currentDate) {
+    if (promotion.type.expiresAt && new Date(promotion.type.expiresAt) < currentDate) {
       throw new BadRequestException('This promotion has expired and cannot be redeemed.');
     }
 
-    const { discountType, discountValue, type } = promotion;
+    const { discountType, discountValue } = promotion.type;
 
-    // await this.callRedeemApi(phoneNumber, discountType, discountValue, type.partnerId);
+    await this.callRedeemApi(phoneNumber, discountType, discountValue, promotion.type.partnerId);
 
     await this.prisma.promotion.update({
       where: { id: promotionId },
       data: {
         redeemed: true,
-        userId,
       },
     });
 
@@ -225,9 +249,9 @@ export class PromotionService {
   }
 
   async callRedeemApi(phoneNumber: string, discountType: string, discountValue: number, partnerId: number) {
-    const apiUrl = `${this.redeemApiBaseUrl}/redeem`;
+    const apiUrl = `${this.redeemApiBaseUrl}/api/redeem`;
 
-    console.log('Calling Redeem API with the following data:', {phoneNumber, discountType, discountValue, partnerId});
+    console.log('Calling Redeem API with the following data:', { phoneNumber, discountType, discountValue, partnerId });
 
     try {
       const response = await axios.post(apiUrl, {
@@ -238,7 +262,29 @@ export class PromotionService {
       });
       return response.data;
     } catch (error) {
+      console.error(error);
       throw new BadRequestException('Failed to call external Redeem API');
     }
+  }
+
+  async assignPromotion(userId: number, promotionType: number) {
+    const promotion = await this.prisma.promotion.findFirst({
+      where: {
+        typeId: promotionType,
+        userId: null,
+        redeemed: false,
+      },
+    });
+
+    if (!promotion) {
+      throw new NotFoundException('No available promotions of the specified type.');
+    }
+
+    const updatedPromotion = await this.prisma.promotion.update({
+      where: { id: promotion.id },
+      data: { userId },
+    });
+
+    return { promotionId: updatedPromotion.id };
   }
 }
