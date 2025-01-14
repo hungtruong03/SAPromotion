@@ -111,4 +111,9 @@ export class PromotionController {
   async assignPromotion(@Body('userId') userId: string, @Body('promotionType') promotionType: number) {
     return await this.promotionService.assignPromotion(userId, promotionType);
   }
+
+  @Post('unauthen/statistic/getUsedPromotions/:typeId')
+  async getUsedPromotions(@Param('typeId') typeId: number, @Body() body: { date?: string; month?: number; year?: number }) {
+    return this.promotionService.getUsedPromotions(Number(typeId), body.date, body.month, body.year);
+  }
 }

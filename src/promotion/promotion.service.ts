@@ -305,4 +305,43 @@ export class PromotionService {
 
     return { promotionId: updatedPromotion.id };
   }
+
+  async getUsedPromotions(typeId: number, date?: string, month?: number, year?: number): Promise<any> {
+    if ((!date && !month && !year) || (month && !year)) {
+      throw new BadRequestException('Please provide a valid date, month, and year combination.');
+    }
+
+    const where: any = {
+      redeemed: true,
+      typeId
+    };
+
+    if (date) {
+      const specificDate = new Date(date);
+      where.redeemAt = {
+        gte: new Date(specificDate.setHours(0, 0, 0, 0)),
+        lt: new Date(specificDate.setHours(23, 59, 59, 999)),
+      };
+    } else if (month && year) {
+      const startOfMonth = new Date(year, month - 1, 1);
+      const endOfMonth = new Date(year, month, 0);
+      where.redeemAt = {
+        gte: startOfMonth,
+        lt: new Date(endOfMonth.setHours(23, 59, 59, 999)),
+      };
+    } else if (year) {
+      const startOfYear = new Date(year, 0, 1);
+      const endOfYear = new Date(year, 11, 31, 23, 59, 59, 999);
+      where.redeemAt = {
+        gte: startOfYear,
+        lt: endOfYear,
+      };
+    }
+
+    const count = await this.prisma.promotion.count({
+      where,
+    });
+
+    return { count };
+  }
 }
