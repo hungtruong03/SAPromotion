@@ -1,7 +1,7 @@
-import { IsOptional, IsNumber} from 'class-validator';
+import { IsOptional, IsString} from 'class-validator';
 
 export class UpdatePromotionDto {
   @IsOptional()
-  @IsNumber()
-  userId?: number;
+  @IsString()
+  userId?: string;
 }

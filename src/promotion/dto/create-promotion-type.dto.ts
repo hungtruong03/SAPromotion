@@ -7,8 +7,9 @@ export class CreatePromotionTypeDto {
   @IsNotEmpty()
   name: string;
 
+  @IsString()
   @IsNotEmpty()
-  partnerId: number;
+  partnerId: string;
 
   @IsString()
   @IsOptional()

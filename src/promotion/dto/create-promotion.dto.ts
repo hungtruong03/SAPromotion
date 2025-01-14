@@ -1,9 +1,9 @@
-import { IsNotEmpty, IsOptional, IsNumber } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsNumber, IsString } from 'class-validator';
 
 export class CreatePromotionDto {
-  @IsNumber()
+  @IsString()
   @IsOptional()
-  userId?: number;
+  userId?: string;
 
   @IsNumber()
   @IsNotEmpty()

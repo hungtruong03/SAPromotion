@@ -24,14 +24,15 @@ model PromotionType {
   expiresAt    DateTime?
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
-  partnerId  Int
+  partnerId    String
   promotions Promotion[]
 }
 
 model Promotion {
   id           String      @id @default(cuid())
-  userId       Int?
+  userId       String?
   redeemed     Boolean      @default(false)
+  redeemAt     DateTime?
   typeId       Int
   type         PromotionType @relation(fields: [typeId], references: [id])
 }

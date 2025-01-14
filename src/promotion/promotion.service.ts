@@ -31,11 +31,15 @@ export class PromotionService {
     });
   }
 
-  async findAll(perPage: number = 10, page: number = 1) {
-    const skip = (page - 1) * perPage;
+  async findAll(perPage?: number, page?: number) {
+    const validPerPage = perPage && perPage > 0 ? perPage : 10;
+    const validPage = page && page > 0 ? page : 1;
+
+    const skip = (validPage - 1) * validPerPage;
+
     return this.prisma.promotion.findMany({
       skip,
-      take: perPage,
+      take: validPerPage,
       include: { type: true },
     });
   }
@@ -44,12 +48,16 @@ export class PromotionService {
     return this.prisma.promotion.findUnique({ where: { id } });
   }
 
-  async findByUserId(userId: number, perPage: number = 10, page: number = 1) {
-    const skip = (page - 1) * perPage;
+  async findByUserId(userId: string, perPage?: number, page?: number) {
+    const validPerPage = perPage && perPage > 0 ? perPage : 10;
+    const validPage = page && page > 0 ? page : 1;
+
+    const skip = (validPage - 1) * validPerPage;
+
     return this.prisma.promotion.findMany({
       where: { userId },
       skip,
-      take: perPage,
+      take: validPerPage,
       include: { type: true },
     });
   }
@@ -70,7 +78,7 @@ export class PromotionService {
     return this.prisma.promotion.delete({ where: { id } });
   }
 
-  async redeem(id: string, phoneNumber: string, userId: number) {
+  async redeem(id: string, phoneNumber: string, userId: string) {
     const promotion = await this.prisma.promotion.findUnique({
       where: { id },
       include: { type: true },
@@ -95,12 +103,13 @@ export class PromotionService {
 
     const { discountType, discountValue } = promotion.type;
 
-    await this.callRedeemApi(phoneNumber, discountType, discountValue, promotion.type.partnerId);
+    // await this.callRedeemApi(phoneNumber, discountType, discountValue, promotion.type.partnerId);
 
     return this.prisma.promotion.update({
       where: { id },
       data: {
         redeemed: true,
+        redeemAt: currentDate,
       },
     });
   }
@@ -121,20 +130,28 @@ export class PromotionService {
     return this.prisma.promotionType.create({ data });
   }
 
-  async findAllTypes(perPage: number = 10, page: number = 1) {
-    const skip = (page - 1) * perPage;
+  async findAllTypes(perPage?: number, page?: number) {
+    const validPerPage = perPage && perPage > 0 ? perPage : 10;
+    const validPage = page && page > 0 ? page : 1;
+
+    const skip = (validPage - 1) * validPerPage;
+
     return this.prisma.promotionType.findMany({
       skip,
-      take: perPage,
+      take: validPerPage,
     });
   }
 
-  async findByPartnerId(partnerId: number, perPage: number = 10, page: number = 1) {
-    const skip = (page - 1) * perPage;
+  async findByPartnerId(partnerId: string, perPage?: number, page?: number) {
+    const validPerPage = perPage && perPage > 0 ? perPage : 10;
+    const validPage = page && page > 0 ? page : 1;
+
+    const skip = (validPage - 1) * validPerPage;
+
     return this.prisma.promotionType.findMany({
       where: { partnerId },
       skip,
-      take: perPage,
+      take: validPerPage,
     });
   }
 
@@ -205,7 +222,7 @@ export class PromotionService {
     return value;
   }
 
-  async redeemByCode(code: string, phoneNumber: string, userId: number) {
+  async redeemByCode(code: string, phoneNumber: string, userId: string) {
     const promotionId = await this.redis.get(code);
 
     if (!promotionId) {
@@ -236,19 +253,20 @@ export class PromotionService {
 
     const { discountType, discountValue } = promotion.type;
 
-    await this.callRedeemApi(phoneNumber, discountType, discountValue, promotion.type.partnerId);
+    // await this.callRedeemApi(phoneNumber, discountType, discountValue, promotion.type.partnerId);
 
     await this.prisma.promotion.update({
       where: { id: promotionId },
       data: {
         redeemed: true,
+        redeemAt: currentDate,
       },
     });
 
     return { message: 'Promotion redeemed successfully.' };
   }
 
-  async callRedeemApi(phoneNumber: string, discountType: string, discountValue: number, partnerId: number) {
+  async callRedeemApi(phoneNumber: string, discountType: string, discountValue: number, partnerId: string) {
     const apiUrl = `${this.redeemApiBaseUrl}/api/redeem`;
 
     console.log('Calling Redeem API with the following data:', { phoneNumber, discountType, discountValue, partnerId });
@@ -267,7 +285,7 @@ export class PromotionService {
     }
   }
 
-  async assignPromotion(userId: number, promotionType: number) {
+  async assignPromotion(userId: string, promotionType: number) {
     const promotion = await this.prisma.promotion.findFirst({
       where: {
         typeId: promotionType,
